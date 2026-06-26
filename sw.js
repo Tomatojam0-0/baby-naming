@@ -1,5 +1,6 @@
 // Service Worker - 宝宝起名 PWA
-var CACHE_NAME = 'baby-naming-v1';
+// v3 - 网络优先策略，确保用户始终获取最新版本
+var CACHE_NAME = 'baby-naming-v3';
 var urlsToCache = [
   './',
   './index.html',
@@ -37,21 +38,24 @@ self.addEventListener('activate', function(event) {
   self.clients.claim();
 });
 
+// 网络优先策略：先尝试网络，失败再用缓存
 self.addEventListener('fetch', function(event) {
+  if (event.request.method !== 'GET') return;
+
   event.respondWith(
-    caches.match(event.request).then(function(response) {
-      if (response) return response;
-      return fetch(event.request).then(function(response) {
-        // 缓存新请求（仅同源）
-        if (!event.request || event.request.method !== 'GET') return response;
+    fetch(event.request).then(function(response) {
+      // 网络成功：缓存新响应
+      if (response && response.status === 200) {
         var responseClone = response.clone();
         caches.open(CACHE_NAME).then(function(cache) {
           cache.put(event.request, responseClone);
         });
-        return response;
-      }).catch(function() {
-        // 离线回退
-        return caches.match('./index.html');
+      }
+      return response;
+    }).catch(function() {
+      // 网络失败：用缓存
+      return caches.match(event.request).then(function(response) {
+        return response || caches.match('./index.html');
       });
     })
   );

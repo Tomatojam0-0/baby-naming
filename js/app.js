@@ -15,12 +15,23 @@ var App = (function() {
       });
     });
 
-    // 复选框样式
-    document.querySelectorAll('.checkbox-item').forEach(function(item) {
-      item.addEventListener('click', function() {
-        item.classList.toggle('active');
-        var cb = item.querySelector('input');
-        if (cb) cb.checked = item.classList.contains('active');
+    // 复选框：用 change 事件同步样式，避免与浏览器默认行为冲突
+    document.querySelectorAll('.checkbox-group').forEach(function(group) {
+      group.addEventListener('change', function(e) {
+        var target = e.target;
+        if (target.tagName === 'INPUT' && target.type === 'checkbox') {
+          var item = target.closest('.checkbox-item');
+          if (item) {
+            item.classList.toggle('active', target.checked);
+          }
+        }
+      });
+      // 初始化：同步已有的 checked 状态到 label 样式
+      group.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+        var item = cb.closest('.checkbox-item');
+        if (item) {
+          item.classList.toggle('active', cb.checked);
+        }
       });
     });
 
@@ -42,6 +53,19 @@ var App = (function() {
   }
 
   function switchTab(tab) {
+      // 从起名切到评估时，自动带参
+      if (tab === 'evaluate') {
+        var nmSurname = document.getElementById('nm-surname').value.trim();
+        var nmDate = document.getElementById('nm-date').value;
+        var nmHour = document.getElementById('nm-hour').value;
+        var nmGender = document.getElementById('nm-gender').value;
+        if (nmSurname) document.getElementById('ev-surname').value = nmSurname;
+        if (nmDate) document.getElementById('ev-date').value = nmDate;
+        document.getElementById('ev-hour').value = nmHour;
+        if (nmGender === 'male') document.getElementById('ev-gender').value = '1';
+        else if (nmGender === 'female') document.getElementById('ev-gender').value = '0';
+        // neutral 时不改 ev-gender，保持用户上次选择
+      }
     document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
     document.querySelectorAll('.tab-content').forEach(function(c) { c.classList.remove('active'); });
     document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
@@ -50,57 +74,82 @@ var App = (function() {
 
   // ===== 起名 =====
   function doGenerate() {
-    var surname = document.getElementById('nm-surname').value.trim();
-    var gender = document.getElementById('nm-gender').value;
-    var dateStr = document.getElementById('nm-date').value;
-    var hour = parseInt(document.getElementById('nm-hour').value);
-    var minute = parseInt(document.getElementById('nm-minute').value) || 0;
-    var nameLength = parseInt(document.getElementById('nm-length').value);
-    var avoidChars = document.getElementById('nm-avoid').value.trim();
-    var preferDuti = document.getElementById('nm-duti').checked;
-    var preferSimple = document.getElementById('nm-simple').checked;
-    var preferNatural = document.getElementById('nm-natural').checked;
+    try {
+      var surname = document.getElementById('nm-surname').value.trim();
+      var gender = document.getElementById('nm-gender').value;
+      var dateStr = document.getElementById('nm-date').value;
+      var hour = parseInt(document.getElementById('nm-hour').value);
+      var minute = parseInt(document.getElementById('nm-minute').value) || 0;
+      var nameLength = parseInt(document.getElementById('nm-length').value);
+      var avoidChars = document.getElementById('nm-avoid').value.trim();
+      var fatherName = document.getElementById('nm-father').value.trim();
+      var motherName = document.getElementById('nm-mother').value.trim();
+      var preferDuti = document.getElementById('nm-duti').checked;
+      var preferSimple = document.getElementById('nm-simple').checked;
+      var noPopular = document.getElementById('nm-no-popular').checked;
 
-    if (!surname) { alert('请输入姓氏'); return; }
-    if (!dateStr) { alert('请选择出生日期'); return; }
+      // 收集风格偏好
+      var stylePrefs = [];
+      document.querySelectorAll('#nm-style input[type="checkbox"]:checked').forEach(function(cb) {
+        stylePrefs.push(cb.value);
+      });
 
-    var resultDiv = document.getElementById('nm-result');
-    resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div>正在排盘起名中...</div>';
+      if (!surname) { alert('请输入姓氏'); return; }
+      if (!dateStr) { alert('请选择出生日期'); return; }
 
-    // 构建日期对象
-    var parts = dateStr.split('-');
-    var date = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]), hour, minute, 0);
+      var resultDiv = document.getElementById('nm-result');
+      resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div>正在排盘起名中，请稍候...</div>';
 
-    // 排八字
-    var baziGender = (gender === 'male') ? 1 : 0;
-    var bazi = BaziEngine.paipan(date, baziGender, 2);
+      // 构建日期对象
+      var parts = dateStr.split('-');
+      var date = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]), hour, minute, 0);
 
-    // 构建偏好
-    var prefs = {
-      gender: gender,
-      preferDuti: preferDuti,
-      maxStrokes: preferSimple ? 12 : 20,
-      nameLength: nameLength,
-      avoidChars: avoidChars,
-      minScore: 55
-    };
+      // 排八字
+      var baziGender = (gender === 'male') ? 1 : 0;
+      var bazi = BaziEngine.paipan(date, baziGender, 2);
 
-    // 生成名字
-    setTimeout(function() {
-      var names = NamingEngine.generateNames(surname, bazi.xiyong, prefs);
+      // 构建偏好
+      var prefs = {
+        gender: gender,
+        preferDuti: preferDuti,
+        maxStrokes: preferSimple ? 10 : 20,
+        nameLength: nameLength,
+        avoidChars: avoidChars,
+        minScore: 55,
+        style: stylePrefs,
+        fatherName: fatherName,
+        motherName: motherName,
+        noPopular: noPopular
+      };
 
-      // 如果偏好自然意境，提升自然标签的排序
-      if (preferNatural) {
-        names.forEach(function(n) {
-          if (n.tags && n.tags.indexOf('自然') !== -1) {
-            n.totalScore += 5;
-          }
-        });
-        names.sort(function(a, b) { return b.totalScore - a.totalScore; });
-      }
+      // 缓存参数（用于"再来10个"）
+      _lastNmParams = {
+        surname: surname,
+        date: date,
+        baziGender: baziGender,
+        bazi: bazi,
+        prefs: prefs,
+        sect: 2
+      };
 
-      resultDiv.innerHTML = renderBaziPanel(bazi) + renderNameResults(names.slice(0, 30));
-    }, 100);
+      // 生成名字
+      setTimeout(function() {
+        try {
+          var names = NamingEngine.generateNames(surname, bazi.xiyong, prefs);
+          _lastNmParams.allNames = names;
+          resultDiv.innerHTML = renderBaziPanel(bazi) + renderNameResults(names.slice(0, 30));
+          // 显示"再来10个"按钮
+          document.getElementById('nm-more-wrap').style.display = names.length > 30 ? 'block' : 'none';
+          document.getElementById('nm-more-wrap').dataset.start = '30';
+        } catch (err) {
+          console.error(err);
+          resultDiv.innerHTML = '<div class="card"><div class="empty-state" style="color:var(--danger)">生成名字时出错：' + err.message + '</div></div>';
+        }
+      }, 50);
+    } catch (err) {
+      console.error(err);
+      alert('起名时出错：' + err.message);
+    }
   }
 
   // ===== 渲染八字面板 =====
@@ -139,7 +188,7 @@ var App = (function() {
 
     // 喜用神
     html += '<div class="xiyong-box">';
-    html += '<div style="font-size:14px;font-weight:600;color:' + (--primaryDark) + '">喜用神分析</div>';
+    html += '<div style="font-size:14px;font-weight:600;color:#0C447C">喜用神分析</div>';
     html += '<div style="font-size:13px;color:#555;margin-top:6px">' + bazi.xiyong.reason + '</div>';
     html += '<div style="font-size:12px;color:#888;margin-top:4px">日主：' + bazi.dayMaster + '(' + WX_CN[bazi.dayMasterWX] + ') | 格局：' + bazi.xiyong.strength + '</div>';
     html += '<div class="xi-tags">';
@@ -173,6 +222,11 @@ var App = (function() {
   }
 
   var primaryDark = '#0C447C';
+
+  // 缓存上次起名参数（用于"再来10个"）
+  var _lastNmParams = null;
+  // 对比列表（最多5个）
+  var _compareList = [];
 
   function renderPillarRow(label, pillar) {
     var ganWXClass = 'wx-' + pillar.ganWX;
@@ -210,6 +264,11 @@ var App = (function() {
       html += '<div class="pinyin">' + name.pinyin + '</div>';
       html += '<div class="meaning">' + name.meaning + '</div>';
 
+      // 操作按钮：加入对比（onclick 由事件委托统一处理）
+      html += '<div style="margin-top:8px;display:flex;gap:6px;justify-content:center">';
+      html += '<button class="btn-compare" data-name="' + name.fullName + '">📊 对比</button>';
+      html += '</div>';
+
       // 标签
       html += '<div class="tags">';
       html += '<span class="tag">' + name.wuxing + '</span>';
@@ -245,28 +304,38 @@ var App = (function() {
 
   // ===== 测名 =====
   function doEvaluate() {
-    var surname = document.getElementById('ev-surname').value.trim();
-    var nameStr = document.getElementById('ev-name').value.trim();
-    var dateStr = document.getElementById('ev-date').value;
-    var hour = parseInt(document.getElementById('ev-hour').value);
-    var gender = parseInt(document.getElementById('ev-gender').value);
+    try {
+      var surname = document.getElementById('ev-surname').value.trim();
+      var nameStr = document.getElementById('ev-name').value.trim();
+      var dateStr = document.getElementById('ev-date').value;
+      var hour = parseInt(document.getElementById('ev-hour').value);
+      var gender = parseInt(document.getElementById('ev-gender').value);
 
-    if (!surname) { alert('请输入姓氏'); return; }
-    if (!nameStr) { alert('请输入待测名字'); return; }
-    if (!dateStr) { alert('请选择出生日期'); return; }
+      if (!surname) { alert('请输入姓氏'); return; }
+      if (!nameStr) { alert('请输入待测名字'); return; }
+      if (!dateStr) { alert('请选择出生日期'); return; }
 
-    var resultDiv = document.getElementById('ev-result');
-    resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div>正在分析中...</div>';
+      var resultDiv = document.getElementById('ev-result');
+      resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div>正在分析中，请稍候...</div>';
 
-    var parts = dateStr.split('-');
-    var date = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]), hour, 0, 0);
+      var parts = dateStr.split('-');
+      var date = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]), hour, 0, 0);
 
-    var bazi = BaziEngine.paipan(date, gender, 2);
+      var bazi = BaziEngine.paipan(date, gender, 2);
 
-    setTimeout(function() {
-      var result = NamingEngine.evaluateName(surname, nameStr, bazi.xiyong);
-      resultDiv.innerHTML = renderBaziPanel(bazi) + renderEvalResult(result);
-    }, 100);
+      setTimeout(function() {
+        try {
+          var result = NamingEngine.evaluateName(surname, nameStr, bazi.xiyong);
+          resultDiv.innerHTML = renderBaziPanel(bazi) + renderEvalResult(result);
+        } catch (err) {
+          console.error(err);
+          resultDiv.innerHTML = '<div class="card"><div class="empty-state" style="color:var(--danger)">评估名字时出错：' + err.message + '</div></div>';
+        }
+      }, 50);
+    } catch (err) {
+      console.error(err);
+      alert('测名时出错：' + err.message);
+    }
   }
 
   function renderEvalResult(result) {
@@ -298,11 +367,13 @@ var App = (function() {
       html += '</div>';
 
       // 三才配置
-      html += '<div style="font-size:13px;color:#666;margin-bottom:12px">';
-      var scLevel = sg.sanCai.level;
-      var scColor = scLevel === 'good' ? 'var(--success)' : (scLevel === 'bad' ? 'var(--danger)' : 'var(--warning)');
-      html += '三才配置：<span style="color:' + scColor + ';font-weight:600">' + sg.sanCai.detail + '</span>';
-      html += '</div>';
+      if (sg.sanCai) {
+        html += '<div style="font-size:13px;color:#666;margin-bottom:12px">';
+        var scLevel = sg.sanCai.level;
+        var scColor = scLevel === 'good' ? 'var(--success)' : (scLevel === 'bad' ? 'var(--danger)' : 'var(--warning)');
+        html += '三才配置：<span style="color:' + scColor + ';font-weight:600">' + sg.sanCai.detail + '</span>';
+        html += '</div>';
+      }
     }
 
     // 含义
@@ -311,10 +382,11 @@ var App = (function() {
     html += '</div>';
 
     // 建议列表
-    if (result.suggestions.length > 0) {
+    var suggestions = result.suggestions || [];
+    if (suggestions.length > 0) {
       html += '<div style="font-size:14px;font-weight:600;margin-bottom:8px;color:var(--primary-dark)">分析建议</div>';
       html += '<ul class="suggestion-list">';
-      result.suggestions.forEach(function(s) {
+      suggestions.forEach(function(s) {
         html += '<li class="' + s.type + '">';
         if (s.type === 'warning') html += '<span>⚠️</span>';
         else if (s.type === 'good') html += '<span>✅</span>';
@@ -425,9 +497,185 @@ var App = (function() {
         console.log('SW registration failed:', err);
       });
     }
+
+    // "再来10个"按钮
+    document.getElementById('nm-more').addEventListener('click', doGenerateMore);
+
+    // 对比面板折叠
+    document.getElementById('compare-toggle').addEventListener('click', function() {
+      var body = document.getElementById('compare-body');
+      var arrow = document.querySelector('#compare-toggle .compare-arrow');
+      if (body.style.display === 'none') {
+        body.style.display = 'flex';
+        arrow.textContent = '▲';
+      } else {
+        body.style.display = 'none';
+        arrow.textContent = '▼';
+      }
+    });
   }
 
-  return { init: init };
+
+
+  // ===== 再来10个 =====
+  function doGenerateMore() {
+    if (!_lastNmParams || !_lastNmParams.allNames) return;
+    var btn = document.getElementById('nm-more');
+    btn.disabled = true;
+    btn.textContent = '生成中...';
+    setTimeout(function() {
+      try {
+        var allNames = _lastNmParams.allNames;
+        var start = parseInt(document.getElementById('nm-more-wrap').dataset.start || '30');
+        var more = allNames.slice(start, start + 10);
+        if (more.length === 0) {
+          btn.textContent = '没有更多了';
+          btn.disabled = true;
+          return;
+        }
+        var container = document.querySelector('#nm-result .name-grid');
+        if (container) {
+          more.forEach(function(name, i) {
+            var idx = start + i;
+            var isTop = idx < 3;
+            var scoreClass = name.totalScore >= 80 ? 'high' : (name.totalScore >= 65 ? 'mid' : 'low');
+            var sg = name.sangge;
+            var cardHtml = '<div class="name-card' + (isTop ? ' top' : '') + '">'
+              + '<div class="score-badge ' + scoreClass + '">' + name.totalScore + '</div>'
+              + '<div class="hanzi">' + name.fullName + '</div>'
+              + '<div class="pinyin">' + name.pinyin + '</div>'
+              + '<div class="meaning">' + name.meaning + '</div>'
+              + '<div style="margin-top:8px;display:flex;gap:6px;justify-content:center">'
+              + '<button class="btn-compare" data-name="' + name.fullName + '">📊 对比</button>'
+              + '</div>'
+              + '<div class="tags">'
+              + '<span class="tag">' + name.wuxing + '</span>'
+              + (name.wxMatch ? '<span class="tag">' + name.wxMatch.desc.substring(0, 20) + '</span>' : '')
+              + name.tags.map(function(t) { return '<span class="tag">' + t + '</span>'; }).join('')
+              + '</div>'
+              + '<div class="sg-detail">'
+              + renderSGItem('天格', sg.tianGe)
+              + renderSGItem('人格', sg.renGe)
+              + renderSGItem('地格', sg.diGe)
+              + renderSGItem('外格', sg.waiGe)
+              + renderSGItem('总格', sg.zongGe)
+              + '</div></div>';
+            container.insertAdjacentHTML('beforeend', cardHtml);
+          });
+        }
+        start += 10;
+        document.getElementById('nm-more-wrap').dataset.start = String(start);
+        btn.disabled = false;
+        btn.textContent = '🔄 再来10个';
+        if (start >= allNames.length) {
+          btn.textContent = '没有更多了';
+          btn.disabled = true;
+        }
+      } catch (err) {
+        console.error(err);
+        btn.disabled = false;
+        btn.textContent = '🔄 再来10个';
+      }
+    }, 50);
+  }
+
+  // ===== 对比列表 =====
+  function toggleCompare(fullName) {
+    var idx = -1;
+    for (var i = 0; i < _compareList.length; i++) {
+      if (_compareList[i].fullName === fullName) { idx = i; break; }
+    }
+    if (idx >= 0) {
+      _compareList.splice(idx, 1);
+    } else {
+      if (_compareList.length >= 5) {
+        alert('最多对比5个名字');
+        return;
+      }
+      var detail = null;
+      if (_lastNmParams && _lastNmParams.bazi) {
+        try {
+          detail = NamingEngine.evaluateName(
+            fullName[0],
+            fullName.substring(1),
+            _lastNmParams.bazi.xiyong
+          );
+        } catch (e) { detail = null; }
+      }
+      if (!detail) {
+        detail = { fullName: fullName, totalScore: 0, wuxing: '?', sangge: null, meaning: '', tags: [] };
+      }
+      _compareList.push(detail);
+    }
+    renderComparePanel();
+    // 同步按钮状态
+    document.querySelectorAll('.btn-compare').forEach(function(btn) {
+      if (btn.dataset.name === fullName) {
+        if (idx >= 0) {
+          btn.textContent = '📊 对比';
+          btn.classList.remove('added');
+        } else {
+          btn.textContent = '✓ 已加';
+          btn.classList.add('added');
+        }
+      }
+    });
+  }
+
+  function removeFromCompare(fullName) {
+    _compareList = _compareList.filter(function(item) { return item.fullName !== fullName; });
+    renderComparePanel();
+    document.querySelectorAll('.btn-compare').forEach(function(btn) {
+      if (btn.dataset.name === fullName) {
+        btn.textContent = '📊 对比';
+        btn.classList.remove('added');
+      }
+    });
+  }
+
+  function renderComparePanel() {
+    var panel = document.getElementById('compare-panel');
+    var countEl = document.getElementById('compare-count');
+    var bodyEl = document.getElementById('compare-body');
+    countEl.textContent = _compareList.length + '/5';
+    if (_compareList.length === 0) {
+      panel.style.display = 'none';
+      return;
+    }
+    panel.style.display = 'block';
+    var html = '';
+    _compareList.forEach(function(item) {
+      html += '<div class="compare-card">';
+      html += '<div class="compare-card-header">';
+      html += '<span class="compare-name">' + item.fullName + '</span>';
+      html += '<span class="compare-remove" data-name="' + item.fullName + '">✕</span>';
+      html += '</div>';
+      html += '<div class="compare-score">' + item.totalScore + '分</div>';
+      html += '<div class="compare-wx">五行：' + item.wuxing + '</div>';
+      if (item.sangge) {
+        var sg = item.sangge;
+        html += '<div class="compare-sg">';
+        html += '天' + sg.tianGe.num + ' 人' + sg.renGe.num + ' 地' + sg.diGe.num;
+        html += '<br>外' + sg.waiGe.num + ' 总' + sg.zongGe.num;
+        html += '</div>';
+      }
+      if (item.meaning) {
+        html += '<div class="compare-meaning">' + item.meaning.substring(0, 28) + '</div>';
+      }
+      html += '</div>';
+    });
+    // 补齐空白占位
+    for (var i = _compareList.length; i < 5; i++) {
+      html += '<div class="compare-card placeholder"></div>';
+    }
+    bodyEl.innerHTML = html;
+  }
+
+  return {
+    init: init,
+    toggleCompare: toggleCompare,
+    removeFromCompare: removeFromCompare
+  };
 })();
 
 document.addEventListener('DOMContentLoaded', App.init);

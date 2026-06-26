@@ -37,7 +37,7 @@
       <div class="form-row">
         <div class="form-group">
           <label>姓氏</label>
-          <input type="text" id="nm-surname" value="杨" maxlength="2" placeholder="如：杨">
+          <input type="text" id="nm-surname" value="" maxlength="2" placeholder="如：杨">
         </div>
         <div class="form-group">
           <label>性别</label>
@@ -51,7 +51,7 @@
       <div class="form-row-3">
         <div class="form-group">
           <label>出生日期</label>
-          <input type="date" id="nm-date" value="2026-07-14">
+          <input type="date" id="nm-date" value="">
         </div>
         <div class="form-group">
           <label>出生时辰</label>
@@ -75,14 +75,40 @@
           <input type="number" id="nm-minute" value="0" min="0" max="59">
         </div>
       </div>
+      <div class="form-row">
       <div class="form-group">
-        <label>起名偏好</label>
+        <label>父亲姓名（可选）</label>
+        <input type="text" id="nm-father" value="" placeholder="如：杨铎浩">
+      </div>
+      <div class="form-group">
+        <label>母亲姓名（可选）</label>
+        <input type="text" id="nm-mother" value="" placeholder="如：潘路茜">
+      </div>
+      </div>
+
+      <div class="form-group">
+        <label>风格偏好（多选）</label>
+        <div class="checkbox-group" id="nm-style">
+          <label class="checkbox-item active"><input type="checkbox" value="simple" checked> 简单大方</label>
+          <label class="checkbox-item active"><input type="checkbox" value="wise" checked> 睿智通透</label>
+          <label class="checkbox-item active"><input type="checkbox" value="neutral" checked> 中性独立</label>
+          <label class="checkbox-item"><input type="checkbox" value="nature"> 自然意境</label>
+          <label class="checkbox-item"><input type="checkbox" value="poetry"> 诗词典故</label>
+          <label class="checkbox-item"><input type="checkbox" value="parent"> 父母名承接</label>
+          <label class="checkbox-item"><input type="checkbox" value="classical"> 古典雅致</label>
+          <label class="checkbox-item"><input type="checkbox" value="modern"> 现代清新</label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>字形偏好</label>
         <div class="checkbox-group">
           <label class="checkbox-item active"><input type="checkbox" id="nm-duti" checked> 优先独体字</label>
           <label class="checkbox-item active"><input type="checkbox" id="nm-simple" checked> 笔画简洁(≤10)</label>
-          <label class="checkbox-item"><input type="checkbox" id="nm-natural"> 自然意境</label>
+          <label class="checkbox-item"><input type="checkbox" id="nm-no-popular"> 避开网红字</label>
         </div>
       </div>
+
       <div class="form-row">
         <div class="form-group">
           <label>名字长度</label>
@@ -100,6 +126,19 @@
     </div>
 
     <div id="nm-result"></div>
+    <div id="nm-more-wrap" style="display:none;text-align:center;padding:16px 0 24px">
+      <button class="btn-primary" id="nm-more" style="min-width:160px">🔄 再来10个</button>
+    </div>
+  </div>
+
+  <!-- 对比面板（固定底部） -->
+  <div id="compare-panel" style="display:none">
+    <div class="compare-header" id="compare-toggle">
+      <span>📊 名字对比</span>
+      <span class="compare-count" id="compare-count">0/5</span>
+      <span class="compare-arrow">▲</span>
+    </div>
+    <div class="compare-body" id="compare-body"></div>
   </div>
 
   <!-- ===== Tab 2: 测名评估 ===== -->
@@ -109,7 +148,7 @@
       <div class="form-row">
         <div class="form-group">
           <label>姓氏</label>
-          <input type="text" id="ev-surname" value="杨" maxlength="2" placeholder="如：杨">
+          <input type="text" id="ev-surname" value="" maxlength="2" placeholder="如：杨">
         </div>
         <div class="form-group">
           <label>待测名字（不含姓）</label>
@@ -119,7 +158,7 @@
       <div class="form-row-3">
         <div class="form-group">
           <label>出生日期</label>
-          <input type="date" id="ev-date" value="2026-07-14">
+          <input type="date" id="ev-date" value="">
         </div>
         <div class="form-group">
           <label>出生时辰</label>

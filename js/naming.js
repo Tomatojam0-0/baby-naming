@@ -6,12 +6,30 @@ var NamingEngine = (function() {
 
   var WX_CN = {metal:"金",water:"水",wood:"木",fire:"火",earth:"土"};
 
+  // 近年高频网红字/组合（避开用）
+  var POPULAR_CHARS = ['梓','涵','轩','浩','宇','然','辰','睿','泽','昊','逸','晨','彤','怡','欣','妍','希','诺','墨','一','子','萱','桐','楠','煜','烨','熙','雨','梦','佳','琪','鑫','源','博','涛','杰','伟','强','芳','敏','丽','娜','静','娟','霞'];
+
+  // 风格标签映射
+  var STYLE_TAGS = {
+    nature: ['自然','山水','天象','植物','季节','动物'],
+    poetry: ['诗经','楚辞','论语','唐诗','宋词','道家','禅意','诗意','典故'],
+    simple: ['简约','简洁','纯净'],
+    wise: ['智慧','睿智','思辨','通达','明理','才学'],
+    neutral: [], // 中性由性别过滤处理
+    classical: ['古典','文雅','书香','典故','诗经','楚辞','道家','禅意'],
+    modern: ['清新','简约','现代','开阔','明亮'],
+    parent: [] // 父母名承接单独处理
+  };
+
   /**
    * 根据八字喜用 + 偏好筛选候选字
    */
   function getCandidateChars(xiyong, preferences) {
     var prefs = preferences || {};
     var xi = xiyong.xi; // 喜用五行数组
+
+    // 分析父母名中的字（如果提供）
+    var parentChars = analyzeParentNames(prefs.fatherName, prefs.motherName);
 
     var candidates = CHAR_DB.filter(function(ch) {
       // 排除姓氏
@@ -25,17 +43,48 @@ var NamingEngine = (function() {
       if (prefs.preferDuti && !ch.d) return false;
       // 最大笔画限制
       if (prefs.maxStrokes && ch.s > prefs.maxStrokes) return false;
+      // 避开网红字
+      if (prefs.noPopular && POPULAR_CHARS.indexOf(ch.c) !== -1) return false;
       return true;
     });
 
-    // 排序：独体字优先，笔画少优先
-    candidates.sort(function(a, b) {
-      if (a.d && !b.d) return -1;
-      if (!a.d && b.d) return 1;
-      return a.s - b.s;
-    });
+    // 父母名承接：父母名字中的喜用字优先
+    if (prefs.style && prefs.style.indexOf('parent') !== -1 && parentChars.length > 0) {
+      candidates.sort(function(a, b) {
+        var aIsParent = parentChars.indexOf(a.c) !== -1 ? 1 : 0;
+        var bIsParent = parentChars.indexOf(b.c) !== -1 ? 1 : 0;
+        if (aIsParent !== bIsParent) return bIsParent - aIsParent;
+        if (a.d && !b.d) return -1;
+        if (!a.d && b.d) return 1;
+        return a.s - b.s;
+      });
+    } else {
+      // 排序：独体字优先，笔画少优先
+      candidates.sort(function(a, b) {
+        if (a.d && !b.d) return -1;
+        if (!a.d && b.d) return 1;
+        return a.s - b.s;
+      });
+    }
 
     return candidates;
+  }
+
+  /**
+   * 分析父母名，返回可用的字（去重，排除姓氏，保留喜用神五行）
+   */
+  function analyzeParentNames(fatherName, motherName) {
+    var chars = [];
+    var names = [fatherName || '', motherName || ''];
+    names.forEach(function(name) {
+      if (!name) return;
+      // 去掉第一个字（通常是姓），保留名中的字
+      var ming = name.substring(1);
+      for (var i = 0; i < ming.length; i++) {
+        if (chars.indexOf(ming[i]) === -1) chars.push(ming[i]);
+      }
+    });
+    return chars;
   }
 
   /**
@@ -65,7 +114,7 @@ var NamingEngine = (function() {
       candidates.forEach(function(ch) {
         var sangge = SangGeEngine.calc(surname, [ch.c]);
         if (sangge && sangge.totalScore >= minScore) {
-          results.push(buildNameResult(surname, [ch], sangge, xiyong));
+          results.push(buildNameResult(surname, [ch], sangge, xiyong, prefs));
         }
       });
     } else {
@@ -84,7 +133,7 @@ var NamingEngine = (function() {
 
           var sangge = SangGeEngine.calc(surname, [c1.c, c2.c]);
           if (sangge && sangge.totalScore >= minScore) {
-            results.push(buildNameResult(surname, [c1, c2], sangge, xiyong));
+            results.push(buildNameResult(surname, [c1, c2], sangge, xiyong, prefs));
           }
         }
       }
@@ -106,7 +155,7 @@ var NamingEngine = (function() {
     return results;
   }
 
-  function buildNameResult(surname, charObjs, sangge, xiyong) {
+  function buildNameResult(surname, charObjs, sangge, xiyong, preferences) {
     var nameStr = charObjs.map(function(c) { return c.c; }).join('');
     var fullName = surname + nameStr;
     var pinyin = charObjs.map(function(c) { return c.p; }).join(' ');
@@ -117,11 +166,19 @@ var NamingEngine = (function() {
     // 意境评分（基于标签）
     var yijingScore = analyzeYijing(charObjs);
 
-    // 综合评分 = 三才五格(60%) + 五行匹配(25%) + 意境(15%)
+    // 风格偏好评分
+    var styleScore = analyzeStyle(charObjs, preferences);
+
+    // 父母名承接评分
+    var parentScore = analyzeParentConnection(charObjs, preferences);
+
+    // 综合评分 = 三才五格(55%) + 五行匹配(25%) + 意境(10%) + 风格(5%) + 父母承接(5%)
     var totalScore = Math.round(
-      sangge.totalScore * 0.6 +
+      sangge.totalScore * 0.55 +
       wxMatch.score * 100 * 0.25 +
-      yijingScore * 0.15
+      yijingScore * 0.10 +
+      styleScore * 0.05 +
+      parentScore * 0.05
     );
 
     return {
@@ -179,7 +236,7 @@ var NamingEngine = (function() {
       if (c.t) allTags = allTags.concat(c.t);
     });
     // 有意境标签加分
-    var yijingTags = ['自然','开阔','简约','诗意','深邃','光明','清澈','宁静','坚韧','文雅','道家','禅意'];
+    var yijingTags = ['自然','开阔','简约','诗意','深邃','光明','清澈','宁静','坚韧','文雅','道家','禅意','纯净'];
     var score = 50;
     allTags.forEach(function(t) {
       if (yijingTags.indexOf(t) !== -1) score += 8;
@@ -187,6 +244,60 @@ var NamingEngine = (function() {
     // 独体字加分
     charObjs.forEach(function(c) {
       if (c.d) score += 5;
+    });
+    return Math.min(100, score);
+  }
+
+  /**
+   * 风格偏好评分
+   */
+  function analyzeStyle(charObjs, preferences) {
+    var prefs = preferences || {};
+    var style = prefs.style || [];
+    if (style.length === 0) return 50;
+
+    var allTags = [];
+    charObjs.forEach(function(c) { if (c.t) allTags = allTags.concat(c.t); });
+
+    var score = 40;
+    style.forEach(function(s) {
+      var tags = STYLE_TAGS[s] || [];
+      if (s === 'simple') {
+        // 简单大方：独体字+笔画少加分
+        charObjs.forEach(function(c) {
+          if (c.d) score += 8;
+          if (c.s <= 8) score += 4;
+        });
+      } else if (s === 'neutral') {
+        // 中性独立：性别为 neutral 的字加分
+        charObjs.forEach(function(c) {
+          if (c.g === 'neutral') score += 8;
+        });
+      } else if (s === 'parent') {
+        // 父母名承接在 analyzeParentConnection 中单独计算
+      } else {
+        tags.forEach(function(tag) {
+          if (allTags.indexOf(tag) !== -1) score += 10;
+        });
+      }
+    });
+    return Math.min(100, score);
+  }
+
+  /**
+   * 父母名承接评分
+   */
+  function analyzeParentConnection(charObjs, preferences) {
+    var prefs = preferences || {};
+    if (prefs.style.indexOf('parent') === -1) return 50;
+    var parentChars = analyzeParentNames(prefs.fatherName, prefs.motherName);
+    if (parentChars.length === 0) return 50;
+
+    var score = 40;
+    charObjs.forEach(function(c) {
+      if (parentChars.indexOf(c.c) !== -1) {
+        score += 30; // 直接使用父母名字中的字
+      }
     });
     return Math.min(100, score);
   }
@@ -325,7 +436,7 @@ var NamingEngine = (function() {
     for (var pos = 0; pos < originalChars.length; pos++) {
       var origChar = originalChars[pos];
       // 如果当前字不是喜用神，找替代
-      if (xi.indexOf(origChar.w) === -1 || ji.indexOf(origChar.w) !== -1) {
+      if (xi.indexOf(origChar.w) === -1 || xiyong.ji.indexOf(origChar.w) !== -1) {
         // 找同位置喜用神的字
         var replacements = CHAR_DB.filter(function(ch) {
           return xi.indexOf(ch.w) !== -1 &&
