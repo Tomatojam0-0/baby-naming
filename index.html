@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#185FA5">
+<meta name="description" content="基于八字五行与三才五格的宝宝起名工具">
+<title>宝宝起名 · 八字五行智能命名</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%23185FA5'/><text x='50' y='68' font-size='48' text-anchor='middle' fill='white' font-family='serif'>名</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%23185FA5'/><text x='50' y='68' font-size='48' text-anchor='middle' fill='white' font-family='serif'>名</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ===== 顶部 ===== -->
+<header class="app-header">
+  <div class="header-content">
+    <div class="logo">
+      <div class="logo-icon">名</div>
+      <span>宝宝起名 · 八字五行</span>
+    </div>
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="naming">智能起名</button>
+      <button class="tab-btn" data-tab="evaluate">测名评估</button>
+      <button class="tab-btn" data-tab="library">字库浏览</button>
+    </nav>
+  </div>
+</header>
+
+<div class="main-container">
+
+  <!-- ===== Tab 1: 智能起名 ===== -->
+  <div class="tab-content active" id="tab-naming">
+    <div class="card">
+      <div class="card-title">宝宝信息</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>姓氏</label>
+          <input type="text" id="nm-surname" value="杨" maxlength="2" placeholder="如：杨">
+        </div>
+        <div class="form-group">
+          <label>性别</label>
+          <select id="nm-gender">
+            <option value="neutral">未知/中性</option>
+            <option value="male">男孩</option>
+            <option value="female">女孩</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row-3">
+        <div class="form-group">
+          <label>出生日期</label>
+          <input type="date" id="nm-date" value="2026-07-14">
+        </div>
+        <div class="form-group">
+          <label>出生时辰</label>
+          <select id="nm-hour">
+            <option value="12">午时 11-13点</option>
+            <option value="0">子时 23-1点</option>
+            <option value="1">丑时 1-3点</option>
+            <option value="3">寅时 3-5点</option>
+            <option value="5">卯时 5-7点</option>
+            <option value="7">辰时 7-9点</option>
+            <option value="9">巳时 9-11点</option>
+            <option value="13">未时 13-15点</option>
+            <option value="15">申时 15-17点</option>
+            <option value="17">酉时 17-19点</option>
+            <option value="19">戌时 19-21点</option>
+            <option value="21">亥时 21-23点</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>分钟</label>
+          <input type="number" id="nm-minute" value="0" min="0" max="59">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>起名偏好</label>
+        <div class="checkbox-group">
+          <label class="checkbox-item active"><input type="checkbox" id="nm-duti" checked> 优先独体字</label>
+          <label class="checkbox-item active"><input type="checkbox" id="nm-simple" checked> 笔画简洁(≤10)</label>
+          <label class="checkbox-item"><input type="checkbox" id="nm-natural"> 自然意境</label>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>名字长度</label>
+          <select id="nm-length">
+            <option value="2">双字名（推荐）</option>
+            <option value="1">单字名</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>避讳字（不想用的字）</label>
+          <input type="text" id="nm-avoid" placeholder="如：伟,强,芳">
+        </div>
+      </div>
+      <button class="btn-primary" id="nm-generate">开始起名</button>
+    </div>
+
+    <div id="nm-result"></div>
+  </div>
+
+  <!-- ===== Tab 2: 测名评估 ===== -->
+  <div class="tab-content" id="tab-evaluate">
+    <div class="card">
+      <div class="card-title">输入待测名字</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>姓氏</label>
+          <input type="text" id="ev-surname" value="杨" maxlength="2" placeholder="如：杨">
+        </div>
+        <div class="form-group">
+          <label>待测名字（不含姓）</label>
+          <input type="text" id="ev-name" placeholder="如：川白" maxlength="3">
+        </div>
+      </div>
+      <div class="form-row-3">
+        <div class="form-group">
+          <label>出生日期</label>
+          <input type="date" id="ev-date" value="2026-07-14">
+        </div>
+        <div class="form-group">
+          <label>出生时辰</label>
+          <select id="ev-hour">
+            <option value="12">午时 11-13点</option>
+            <option value="0">子时 23-1点</option>
+            <option value="1">丑时 1-3点</option>
+            <option value="3">寅时 3-5点</option>
+            <option value="5">卯时 5-7点</option>
+            <option value="7">辰时 7-9点</option>
+            <option value="9">巳时 9-11点</option>
+            <option value="13">未时 13-15点</option>
+            <option value="15">申时 15-17点</option>
+            <option value="17">酉时 17-19点</option>
+            <option value="19">戌时 19-21点</option>
+            <option value="21">亥时 21-23点</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>性别</label>
+          <select id="ev-gender">
+            <option value="1">男</option>
+            <option value="0">女</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-primary" id="ev-evaluate">开始评估</button>
+    </div>
+
+    <div id="ev-result"></div>
+  </div>
+
+  <!-- ===== Tab 3: 字库浏览 ===== -->
+  <div class="tab-content" id="tab-library">
+    <div class="card">
+      <div class="card-title">汉字字库</div>
+      <div class="filter-bar">
+        <span class="filter-label">五行：</span>
+        <select id="lib-filter-wx">
+          <option value="">全部</option>
+          <option value="metal">金</option>
+          <option value="water">水</option>
+          <option value="wood">木</option>
+          <option value="fire">火</option>
+          <option value="earth">土</option>
+        </select>
+        <span class="filter-label">类型：</span>
+        <select id="lib-filter-duti">
+          <option value="">全部</option>
+          <option value="true">仅独体字</option>
+        </select>
+        <span class="filter-label">性别：</span>
+        <select id="lib-filter-gender">
+          <option value="">全部</option>
+          <option value="neutral">中性</option>
+          <option value="male">男</option>
+          <option value="female">女</option>
+        </select>
+        <span class="filter-label">排序：</span>
+        <select id="lib-sort">
+          <option value="strokes">笔画少→多</option>
+          <option value="wuxing">按五行</option>
+        </select>
+      </div>
+      <div id="lib-grid"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 安装提示 -->
+<div class="install-banner" id="install-banner">
+  <span>安装到桌面，离线随时用</span>
+  <button id="install-btn">安装</button>
+  <button class="close" id="install-close">x</button>
+</div>
+
+<!-- ===== 脚本 ===== -->
+<script src="lib/lunar.min.js"></script>
+<script src="data/chars.js"></script>
+<script src="js/bazi.js"></script>
+<script src="js/sangge.js"></script>
+<script src="js/naming.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
